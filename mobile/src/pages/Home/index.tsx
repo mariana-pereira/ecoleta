@@ -1,19 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Feather as Icon } from '@expo/vector-icons';
 import { View, ImageBackground, Image, StyleSheet, Text, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { RectButton } from 'react-native-gesture-handler';
 import { useNavigation } from '@react-navigation/native';
+import RNPickerSelect from 'react-native-picker-select';
+import axios from 'axios';
+
+interface IBGEUFResponse {
+  sigla: string;
+}
+
+interface IBGECityResponse {
+  nome: string;
+}
+
+interface Select {
+  label: string;
+  value: string;
+}
 
 const Home = () => {
-  const [uf, setUf] = useState('');
-  const [city, setCity] = useState('');
+  const [ufs, setUfs] = useState<Select[]>([]);
+  const [cities, setCities] = useState<Select[]>([]);
+  const [selectedUf, setSelectedUf] = useState('0');
+  const [selectedCity, setSelectedCity] = useState('0');
 
   const navigation = useNavigation();
 
+  useEffect(() => {
+    axios
+      .get<IBGEUFResponse[]>('https://servicodados.ibge.gov.br/api/v1/localidades/estados')
+      .then(response => {
+        const ufInitials = response.data.map(uf => {
+          return {
+            label: uf.sigla,
+            value: uf.sigla
+          }
+        });
+
+      setUfs(ufInitials);
+    });
+  }, []);
+
+  useEffect(() => {
+    if(selectedUf === '0') {
+      return;
+    }
+
+    axios
+    .get<IBGECityResponse[]>(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${selectedUf}/municipios`)
+    .then(response => {
+      const cityNames = response.data.map(city => {
+        return {
+          label: city.nome,
+          value: city.nome
+        }
+      });
+
+      setCities(cityNames);
+    });
+  }, [selectedUf])
+
   function handleNavigationToPoints() {
     navigation.navigate('Points', {
-      uf,
-      city
+      uf: selectedUf,
+      city: selectedCity
     });
   }
 
@@ -34,18 +85,16 @@ const Home = () => {
         </View>
 
         <View style={styles.footer}>
-          <TextInput
-            style={styles.input}
-            placeholder='Digite a UF'
-            value={uf}
-            onChangeText={text => setUf(text)}
+          <RNPickerSelect
+              placeholder={{label: 'Selecione uma UF', value: ''}}
+              onValueChange={(value) => setSelectedUf(value)}
+              items={ufs}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder='Digite a cidade'
-            value={city}
-            onChangeText={text => setCity(text)}
+          <RNPickerSelect
+              placeholder={{label: 'Selecione uma cidade', value: ''}}
+              onValueChange={(value) => setSelectedCity(value)}
+              items={cities}
           />
 
           <RectButton style={styles.button} onPress={handleNavigationToPoints}>
@@ -92,7 +141,9 @@ const styles = StyleSheet.create({
 
   footer: {},
 
-  select: {},
+  select: {
+    
+  },
 
   input: {
     height: 60,
